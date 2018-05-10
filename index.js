@@ -1,16 +1,31 @@
-const getConfig = function(context, path, defaultConfig, title, body) {
+const defaultBody = (err, path) => {
+  return `An error occurred while running your App:
+
+\`\`\`
+${err.toString()}
+\`\`\`
+
+Check the syntax of \`${path}\` and make sure it's valid.`
+}
+const defaultTitle = 'Error while running this App'
+
+const getConfig = async function(context, path, defaultConfig, title, body) {
   const _path = path || this.path
   const _defaultConfig = defaultConfig || this.defaultConfig
-  const _title = title || this.title
-  const _body = body || this.body
 
-  return null
+  try {
+    return await context.config(_path, _defaultConfig)
+  } catch (err) {
+    const _title = title || this.title || defaultTitle
+    const _body = body || this.body || defaultBody(err, path)
+
+    await context.github.issues.create(context.issue({title: _title, body: _body}))
+    throw err
+  }
 }
 
-const probotReportError = ({path, defaultConfig, title, body}) => {
-  return {getConfig: getConfig.bind({path, defaultConfig, title, body})}
+getConfig.defaults = ({path, defaultConfig, title, body}) => {
+  return getConfig.bind({path, defaultConfig, title, body})
 }
 
-probotReportError.getConfig = getConfig
-
-module.exports = probotReportError
+module.exports = getConfig
