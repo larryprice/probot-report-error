@@ -1,4 +1,4 @@
-const getConfig = require('../index')
+const getConfig = require('../../index')
 
 describe('probotReportError', () => {
   describe('valid', () => {
@@ -94,7 +94,7 @@ Check the syntax of \`${path}\` and make sure it's valid.`
     })
 
     it('creates an issue with the initialized values', async () => {
-      const getConfigDefaults = require('../index').defaults({defaultConfig, title, body, path})
+      const getConfigDefaults = require('../../index').defaults({defaultConfig, title, body, path})
 
       let actual = null
       try {
