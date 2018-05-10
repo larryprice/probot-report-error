@@ -19,7 +19,11 @@ const getConfig = async function(context, path, defaultConfig, title, body) {
     const _title = title || this.title || defaultTitle
     const _body = body || this.body || defaultBody(err, path)
 
-    await context.github.issues.create(context.issue({title: _title, body: _body}))
+    const issues = await context.github.search.issues({q: `repo:${context.payload.repository.full_name} in:title type:issue ${_title}`})
+    if (!issues.data.items.some(issue => issue.title === _title)) {
+      await context.github.issues.create(context.issue({title: _title, body: _body}))
+    }
+
     throw err
   }
 }
