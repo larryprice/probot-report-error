@@ -28,6 +28,14 @@ describe('probotReportError', () => {
     nock.cleanAll()
   })
 
+  describe('valid', () => {
+    it('returns the config', async () => {
+      github = github.get('/repos/larryprice/probot/contents/.github/somePath').reply(200, {content: 'aGVsbG86IHdvcmxkDQpnb29kYnllOiBtb25kYXk='})
+      const config = await getConfig(context, 'somePath', {}, 'Some Title', 'Some Body')
+      expect(config).toEqual({hello: 'world', goodbye: 'monday'})
+    })
+  })
+
   describe('invalid', () => {
     it('creates a new issue', async () => {
       let error
