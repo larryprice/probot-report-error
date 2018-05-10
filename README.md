@@ -9,7 +9,7 @@ Whenever a configuration file is loaded containing invalid YAML, this module wil
 
 This package is installable within your application via npm:
 
-```
+``` sh
 $ npm install larryprice/probot-report-error
 ```
 
@@ -41,3 +41,12 @@ getConfig(context: probot.Context, fileName: String, defaultOptions: Object, tit
   * `defaultOptions` is a dictionary of default options to use if there is no configuration object
   * `title` is the title used when creating an issue in your repository
   * `body` is the first part of the body used when creating an issue in your repository. The rest of the body will contain the formatted error.
+
+### Tests ###
+
+To run the tests:
+
+``` sh
+$ npm install
+$ npm test
+```
