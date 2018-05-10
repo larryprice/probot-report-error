@@ -24,9 +24,7 @@
   "homepage": "https://github.com/larryprice/probot-report-error#readme",
   "devDependencies": {
     "jest": "^22.4.3",
-    "nock": "^9.2.5"
-  },
-  "dependencies": {
+    "nock": "^9.2.5",
     "probot": "^6.1.0"
   }
 }
