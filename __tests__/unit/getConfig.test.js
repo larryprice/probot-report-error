@@ -31,14 +31,22 @@ describe('probotReportError', () => {
     beforeEach(() => {
       context = {
         config: jest.fn(),
-        github: {issues: {create: jest.fn(), edit: jest.fn()}, search: {issues: jest.fn()}},
+        github: {
+          issues: {
+            create: jest.fn(),
+            edit: jest.fn(),
+            createComment: jest.fn()
+          },
+          search: {issues: jest.fn()}
+        },
         issue: jest.fn(),
         payload: {repository: {full_name: 'foo/bar'}}
       }
 
       context.config.mockImplementation(() => {throw expected})
       context.issue.mockImplementation(params => params)
-      context.github.search.issues.mockReturnValueOnce({data: {items: [{title: 'foobar'}, {title: 'barbaz'}]}})
+      context.github.search.issues.mockReturnValueOnce(
+        {data: {items: [{title: 'foobar', body: ''}, {title: 'barbaz', body: 'Error: Should throw this error'}]}})
     })
 
     it('creates a new issue with the given title and body', async () => {
@@ -122,23 +130,23 @@ Check the syntax of \`${path}\` and make sure it's valid.`
     it('ignores error for existing issues', async () => {
       let actual = null
       try {
-        await getConfig(context, path, defaultConfig, 'foobar', body)
+        await getConfig(context, path, defaultConfig, 'barbaz', body)
       } catch (err) {
         actual = err
       }
       expect(actual).toBe(expected)
 
-
       expect(context.github.search.issues.mock.calls.length).toBe(1)
-      expect(context.github.search.issues.mock.calls[0][0]).toEqual({q: `repo:foo/bar in:title type:issue foobar`})
+      expect(context.github.search.issues.mock.calls[0][0]).toEqual({q: `repo:foo/bar in:title type:issue barbaz`})
 
       expect(context.issue.mock.calls.length).toBe(0)
       expect(context.github.issues.create.mock.calls.length).toBe(0)
     })
 
-    it('reopens an old issue', async () => {
+    it('reopens an old issue with same body', async () => {
       context.github.search.issues.mockReset()
-      context.github.search.issues.mockReturnValueOnce({data: {items: [{title: 'foobar', state: 'closed', number: 55}]}})
+      context.github.search.issues.mockReturnValueOnce(
+        {data: {items: [{title: 'foobar', state: 'closed', number: 55, body: 'Error: Should throw this error'}]}})
 
       let actual = null
       try {
@@ -156,6 +164,33 @@ Check the syntax of \`${path}\` and make sure it's valid.`
 
       expect(context.github.issues.edit.mock.calls.length).toBe(1)
       expect(context.github.issues.edit.mock.calls[0][0]).toEqual({number: 55, state: 'open'})
+    })
+
+    it('adds comment when body does not include error', async () => {
+      context.github.search.issues.mockReset()
+      context.github.search.issues.mockReturnValueOnce(
+        {data: {items: [{title: 'foobar', state: 'closed', number: 55, body: 'Error not found here'}]}})
+
+      let actual = null
+      try {
+        await getConfig(context, path, defaultConfig, 'foobar', body)
+      } catch (err) {
+        actual = err
+      }
+      expect(actual).toBe(expected)
+
+      expect(context.github.search.issues.mock.calls.length).toBe(1)
+      expect(context.github.search.issues.mock.calls[0][0]).toEqual({q: `repo:foo/bar in:title type:issue foobar`})
+
+      expect(context.issue.mock.calls.length).toBe(2)
+      expect(context.issue.mock.calls[0][0]).toEqual({number: 55, body: 'bar\n\n```\nError: Should throw this error\n```\n\nCheck the syntax of `baz` and make sure it\'s valid.'})
+      expect(context.issue.mock.calls[1][0]).toEqual({number: 55, state: 'open'})
+
+      expect(context.github.issues.edit.mock.calls.length).toBe(1)
+      expect(context.github.issues.edit.mock.calls[0][0]).toEqual({number: 55, state: 'open'})
+
+      expect(context.github.issues.createComment.mock.calls.length).toBe(1)
+      expect(context.github.issues.createComment.mock.calls[0][0]).toEqual({number: 55, body: 'bar\n\n```\nError: Should throw this error\n```\n\nCheck the syntax of `baz` and make sure it\'s valid.'})
     })
   })
 })

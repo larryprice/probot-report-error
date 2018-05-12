@@ -38,6 +38,7 @@ describe('probotReportError', () => {
   })
 
   describe('invalid', () => {
+    const expectedErrorBody = 'YAMLException: incomplete explicit mapping pair; a key node is missed; or followed by a non-tabulated empty line at line 1, column 19:\\n    welcome: [invalid]: yaml\\n                      ^'
     beforeEach(() => {
       const invalidYAML = Buffer.from('welcome: [invalid]: yaml').toString('base64')
       github = github.get('/repos/larryprice/probot/contents/.github/somePath').reply(200, {content: invalidYAML})
@@ -58,10 +59,10 @@ describe('probotReportError', () => {
       expect(error.reason).toBe('incomplete explicit mapping pair; a key node is missed; or followed by a non-tabulated empty line')
     })
 
-    it('does not create existing, open issues', async () => {
+    it('does not create existing, open issues with same error', async () => {
       let error
       github = github.get('/search/issues?q=repo%3Alarryprice%2Fprobot%20in%3Atitle%20type%3Aissue%20Some%20Title').reply(200, {
-          items: [{'title': 'Some Title', 'state': 'open'}]})
+          items: [{number: 55, 'title': 'Some Title', 'state': 'open', body: expectedErrorBody}]})
       try {
         await getConfig(context, 'somePath', {}, 'Some Title', 'Some Body')
       } catch (err) {
@@ -72,11 +73,26 @@ describe('probotReportError', () => {
       expect(error.reason).toBe('incomplete explicit mapping pair; a key node is missed; or followed by a non-tabulated empty line')
     })
 
-    it('does not create existing, open issues', async () => {
+    it('reopens closed issues with same title and error', async () => {
       let error
       github = github.get('/search/issues?q=repo%3Alarryprice%2Fprobot%20in%3Atitle%20type%3Aissue%20Some%20Title').reply(200, {
-          items: [{'title': 'Some Title', 'state': 'closed', 'number': 55}]})
+          items: [{'title': 'Some Title', 'state': 'closed', 'number': 55, body: expectedErrorBody}]})
         .patch('/repos/larryprice/probot/issues/55', "{\"state\":\"open\"}").reply(200, {number: 55})
+      try {
+        await getConfig(context, 'somePath', {}, 'Some Title', 'Some Body')
+      } catch (err) {
+        error = err
+      }
+      expect(error).not.toBeNull()
+      expect(error.name).toBe('YAMLException')
+      expect(error.reason).toBe('incomplete explicit mapping pair; a key node is missed; or followed by a non-tabulated empty line')
+    })
+
+    it.only('adds comment on existing issue when error is not in body', async () => {
+      let error
+      github = github.get('/search/issues?q=repo%3Alarryprice%2Fprobot%20in%3Atitle%20type%3Aissue%20Some%20Title').reply(200, {
+          items: [{'title': 'Some Title', 'state': 'open', 'number': 55, body: 'body without new error'}]})
+        .post('/repos/larryprice/probot/issues/55/comments', "{\"body\":\"Some Body\\n\\n```\\nYAMLException: incomplete explicit mapping pair; a key node is missed; or followed by a non-tabulated empty line at line 1, column 19:\\n    welcome: [invalid]: yaml\\n                      ^\\n```\\n\\nCheck the syntax of `somePath` and make sure it's valid.\"}").reply(200, {})
       try {
         await getConfig(context, 'somePath', {}, 'Some Title', 'Some Body')
       } catch (err) {
